@@ -1,0 +1,458 @@
+{
+	"info": {
+		"_postman_id": "email-reader-api-collection",
+		"name": "Email Reader API",
+		"description": "Complete test collection for Email Reader FastAPI application",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Check if the API is running and email folder is accessible"
+			},
+			"response": []
+		},
+		{
+			"name": "List Emails - Default",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/emails/",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						""
+					]
+				},
+				"description": "Get first page of emails with default pagination (20 items)"
+			},
+			"response": []
+		},
+		{
+			"name": "List Emails - With Pagination",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/emails/?page=2&page_size=10",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						""
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "2"
+						},
+						{
+							"key": "page_size",
+							"value": "10"
+						}
+					]
+				},
+				"description": "Get second page with 10 emails per page"
+			},
+			"response": []
+		},
+		{
+			"name": "Search Emails - Text Query",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"query\": \"meeting\",\n    \"page\": 1,\n    \"page_size\": 20\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"search"
+					]
+				},
+				"description": "Search emails containing 'meeting' in subject, sender, or recipients"
+			},
+			"response": []
+		},
+		{
+			"name": "Search Emails - Date Filter",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"date_from\": \"2024-01-01T00:00:00\",\n    \"date_to\": \"2024-12-31T23:59:59\",\n    \"page\": 1,\n    \"page_size\": 20\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"search"
+					]
+				},
+				"description": "Search emails within a specific date range"
+			},
+			"response": []
+		},
+		{
+			"name": "Search Emails - Sender Filter",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"sender\": \"example@company.com\",\n    \"page\": 1,\n    \"page_size\": 20\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"search"
+					]
+				},
+				"description": "Search emails from a specific sender"
+			},
+			"response": []
+		},
+		{
+			"name": "Search Emails - Subject Filter",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"subject\": \"invoice\",\n    \"page\": 1,\n    \"page_size\": 20\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"search"
+					]
+				},
+				"description": "Search emails with specific subject content"
+			},
+			"response": []
+		},
+		{
+			"name": "Search Emails - Combined Filters",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"query\": \"urgent\",\n    \"sender\": \"manager@company.com\",\n    \"date_from\": \"2024-01-01T00:00:00\",\n    \"date_to\": \"2024-06-30T23:59:59\",\n    \"page\": 1,\n    \"page_size\": 10\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"search"
+					]
+				},
+				"description": "Search with multiple filters combined"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Email Detail",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/emails/{{email_filename}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"{{email_filename}}"
+					]
+				},
+				"description": "Get detailed information for a specific email file. Replace {{email_filename}} with actual filename."
+			},
+			"response": []
+		},
+		{
+			"name": "Download Emails - JSON Format",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"filenames\": [\"email1.msg\", \"email2.msg\"],\n    \"format\": \"json\",\n    \"include_attachments\": false\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/download",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"download"
+					]
+				},
+				"description": "Download selected emails in JSON format"
+			},
+			"response": []
+		},
+		{
+			"name": "Download Emails - Text Format",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"filenames\": [\"email1.msg\", \"email2.msg\"],\n    \"format\": \"text\",\n    \"include_attachments\": false\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/download",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"download"
+					]
+				},
+				"description": "Download selected emails in text format"
+			},
+			"response": []
+		},
+		{
+			"name": "Download Emails - With Attachments",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"filenames\": [\"email1.msg\"],\n    \"format\": \"json\",\n    \"include_attachments\": true\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/emails/download",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"download"
+					]
+				},
+				"description": "Download emails including attachment data"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Email Statistics",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/emails/stats/summary",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"emails",
+						"stats",
+						"summary"
+					]
+				},
+				"description": "Get summary statistics about emails in the folder"
+			},
+			"response": []
+		},
+		{
+			"name": "Frontend - Main Page",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						""
+					]
+				},
+				"description": "Access the main frontend interface"
+			},
+			"response": []
+		},
+		{
+			"name": "API Documentation",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/docs",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"docs"
+					]
+				},
+				"description": "Access the interactive API documentation (Swagger UI)"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Set default base URL if not already set",
+					"if (!pm.environment.get(\"base_url\")) {",
+					"    pm.environment.set(\"base_url\", \"http://localhost:8000\");",
+					"}",
+					"",
+					"// Set a sample email filename for testing",
+					"if (!pm.environment.get(\"email_filename\")) {",
+					"    pm.environment.set(\"email_filename\", \"sample.msg\");",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Common tests for all requests",
+					"pm.test(\"Response time is less than 5000ms\", function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});",
+					"",
+					"pm.test(\"Response has correct content type\", function () {",
+					"    const contentType = pm.response.headers.get(\"Content-Type\");",
+					"    if (pm.request.url.toString().includes(\"/download\")) {",
+					"        // Download endpoints return files",
+					"        pm.expect(contentType).to.satisfy(function(ct) {",
+					"            return ct.includes(\"application/json\") || ct.includes(\"text/plain\") || ct.includes(\"application/octet-stream\");",
+					"        });",
+					"    } else if (!pm.request.url.toString().includes(\"/docs\") && !pm.request.url.toString().endsWith(\"/\")) {",
+					"        // API endpoints return JSON",
+					"        pm.expect(contentType).to.include(\"application/json\");",
+					"    }",
+					"});",
+					"",
+					"// Test for successful responses",
+					"if (pm.response.code < 400) {",
+					"    pm.test(\"Status code is successful\", function () {",
+					"        pm.response.to.have.status(200);",
+					"    });",
+					"}",
+					"",
+					"// Test for error responses",
+					"if (pm.response.code >= 400) {",
+					"    pm.test(\"Error response has detail\", function () {",
+					"        const jsonData = pm.response.json();",
+					"        pm.expect(jsonData).to.have.property(\"detail\");",
+					"    });",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "email_filename",
+			"value": "sample.msg",
+			"type": "string"
+		}
+	]
+}

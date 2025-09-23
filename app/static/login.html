@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Email Reader</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-sm-10 col-md-7 col-lg-5">
+        <div class="card shadow-sm">
+          <div class="card-body p-4">
+            <h4 class="mb-3 text-center">Email Reader Login</h4>
+            <div id="alertBox" class="alert alert-danger d-none" role="alert"></div>
+            <form id="loginForm">
+              <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" placeholder="Enter username" required>
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" placeholder="Enter password" required>
+              </div>
+              <button class="btn btn-primary w-100" type="submit">
+                <i class="fas fa-sign-in-alt me-1"></i> Sign in
+              </button>
+            </form>
+            <p class="text-muted small mt-3 mb-0">Default credentials can be set via AUTH_USERNAME and AUTH_PASSWORD in the environment.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://kit.fontawesome.com/a2e0e6ad3c.js" crossorigin="anonymous"></script>
+  <script>
+    (function() {
+      // If already logged in, try a quick ping to a protected endpoint; if 200, redirect home
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetch('/api/emails/?page=1&page_size=1', { headers: { 'Authorization': 'Bearer ' + token }})
+          .then(r => { if (r.status !== 401) { window.location.href = '/'; } })
+          .catch(() => {});
+      }
+
+      const form = document.getElementById('loginForm');
+      const alertBox = document.getElementById('alertBox');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        alertBox.classList.add('d-none');
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          if (!res.ok) {
+            let detail = 'Invalid username or password';
+            try { const j = await res.json(); if (j && j.detail) detail = j.detail; } catch {}
+            alertBox.textContent = detail;
+            alertBox.classList.remove('d-none');
+            return;
+          }
+          const data = await res.json();
+          localStorage.setItem('token', data.access_token);
+          window.location.href = '/';
+        } catch (err) {
+          alertBox.textContent = 'Login failed. Please try again.';
+          alertBox.classList.remove('d-none');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
