@@ -22,7 +22,7 @@
                 <span class="navbar-text me-3" id="emailStats">
                     Loading...
                 </span>
-                <a class="btn btn-outline-light btn-sm me-2 d-none" id="adminDomainsBtn" href="#" title="Manage Domains">
+                <a class="btn btn-outline-light btn-sm me-2 d-none" id="adminDomainsBtn" href="/admin/domains" title="Manage Domains">
                     <i class="fas fa-globe me-1"></i> Domains
                 </a>
                 <div class="nav-item dropdown d-none" id="userDropdown">
@@ -258,49 +258,8 @@
         </div>
     </div>
 
-    <!-- Domains Manager Modal (Admin Only) -->
-    <div class="modal fade" id="domainsManagerModal" tabindex="-1" aria-labelledby="domainsManagerLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="domainsManagerLabel">Manage Relay Domains</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="domainsAlert" class="alert alert-danger d-none" role="alert"></div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <button class="btn btn-primary btn-sm" id="openAddDomainFromManager">
-                                <i class="fas fa-plus-circle me-1"></i> Add Domain
-                            </button>
-                            <button class="btn btn-outline-secondary btn-sm ms-2" id="refreshDomainsList">
-                                <i class="fas fa-rotate me-1"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle" id="domainsTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 28%">Added At</th>
-                                    <th>Domain</th>
-                                    <th style="width: 22%">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- rows injected by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js?v=20250924_02"></script>
+    <script src="/static/js/app.js?v=20250924_03"></script>
 </body>
 </html>

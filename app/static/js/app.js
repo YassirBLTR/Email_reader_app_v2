@@ -62,14 +62,7 @@ class EmailReaderApp {
             logoutBtn.addEventListener('click', () => this.logout());
         }
 
-        // Admin Domains button opens Domains Manager
-        const adminBtn = document.getElementById('adminDomainsBtn');
-        if (adminBtn) {
-            adminBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.openDomainsManager();
-            });
-        }
+        // Admin Domains button now navigates to /admin/domains (no JS interception needed)
 
         // Add domain submit
         const addDomainSubmit = document.getElementById('addDomainSubmit');
