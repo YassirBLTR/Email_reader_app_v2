@@ -65,7 +65,7 @@ class DomainsPage {
     const token = localStorage.getItem('token');
     const headers = { ...(options.headers || {}) };
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    return fetch(url, { ...options, headers }).then(res => {
+    return fetch(url, { credentials: 'same-origin', ...options, headers }).then(res => {
       if (res.status === 401) {
         try { localStorage.removeItem('token'); } catch {}
         window.location.href = '/login';
@@ -164,11 +164,21 @@ class DomainsPage {
     if (alertBox) { alertBox.classList.add('d-none'); alertBox.textContent = ''; }
     try {
       const res = await this.apiFetch('/api/admin/domains');
-      if (!res.ok) throw new Error('Failed to load domains');
+      if (!res.ok) {
+        let detail = `(${res.status})`;
+        try {
+          const txt = await res.text();
+          if (txt) detail += ` ${txt}`;
+        } catch {}
+        throw new Error(detail);
+      }
       const data = await res.json();
+      if (data && (data.relay_file !== undefined)) {
+        console.info('[Domains] relay_file:', data.relay_file, 'exists:', data.exists, 'size:', data.size);
+      }
       this.renderDomainsTable(data.domains || []);
     } catch (err) {
-      if (alertBox) { alertBox.textContent = (err && err.message) ? err.message : 'Failed to load domains'; alertBox.classList.remove('d-none'); }
+      if (alertBox) { alertBox.textContent = `Failed to load domains${err && err.message ? ': ' + err.message : ''}`; alertBox.classList.remove('d-none'); }
     }
   }
 

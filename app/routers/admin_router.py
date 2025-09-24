@@ -164,7 +164,12 @@ async def list_domains() -> Dict[str, list[Dict[str, str]]]:
         items.append({"domain": d, "added_at": added_at})
     # Sort by added_at desc if available
     items.sort(key=lambda x: x.get("added_at") or "", reverse=True)
-    return {"domains": items}
+    try:
+        exists = os.path.exists(relay_file)
+        size = os.path.getsize(relay_file) if exists else 0
+    except Exception:
+        exists, size = False, 0
+    return {"domains": items, "relay_file": relay_file, "exists": exists, "size": size}
 
 
 @router.delete("/domains/{domain}")

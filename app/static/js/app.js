@@ -105,7 +105,7 @@ class EmailReaderApp {
         if (token) {
             headers['Authorization'] = 'Bearer ' + token;
         }
-        return fetch(url, { ...options, headers }).then(res => {
+        return fetch(url, { credentials: 'same-origin', ...options, headers }).then(res => {
             if (res.status === 401) {
                 // Clear invalid token and redirect to login
                 try { localStorage.removeItem('token'); } catch {}

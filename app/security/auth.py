@@ -65,16 +65,26 @@ def get_current_user(request: Request, token: Optional[str] = Depends(oauth2_sch
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    used_token = token or request.cookies.get("access_token")
-    if not used_token:
+    cookie_token = request.cookies.get("access_token")
+    candidates = [t for t in [cookie_token, token] if t]
+    if not candidates:
         raise credentials_exception
-    try:
-        payload = jwt.decode(used_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        username: str = payload.get("sub")
-        role: Optional[str] = payload.get("role")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
+    last_error: Optional[Exception] = None
+    username = None
+    role: Optional[str] = None
+    for candidate in candidates:
+        try:
+            payload = jwt.decode(candidate, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+            username = payload.get("sub")
+            role = payload.get("role")
+            if username is None:
+                continue
+            # successful decode
+            break
+        except JWTError as e:
+            last_error = e
+            continue
+    if username is None:
         raise credentials_exception
 
     # Validate username and determine role if missing (backward compatibility)
