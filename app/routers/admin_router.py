@@ -70,7 +70,22 @@ async def add_domain(body: AddDomainRequest) -> Dict[str, str]:
     content = f"relay-domain *.{domain_raw}\n"
 
     try:
-        with open(relay_file, "a", encoding="utf-8") as f:
+        # If the file exists and doesn't end with a newline, insert one before appending
+        needs_leading_newline = False
+        if os.path.exists(relay_file) and os.path.getsize(relay_file) > 0:
+            try:
+                with open(relay_file, "rb") as rf:
+                    rf.seek(-1, os.SEEK_END)
+                    last_byte = rf.read(1)
+                if last_byte != b"\n":
+                    needs_leading_newline = True
+            except Exception:
+                # If we fail to inspect last byte, just append normally
+                needs_leading_newline = False
+
+        with open(relay_file, "a", encoding="utf-8", newline="") as f:
+            if needs_leading_newline:
+                f.write("\n")
             f.write(content)
         logger.info(f"Appended relay domain: {domain_raw} -> {relay_file}")
         # Update meta file with added_at timestamp
@@ -123,15 +138,15 @@ def _update_meta_added(relay_file: str, domain: str) -> None:
 
 def _read_domains(relay_file: str) -> list[str]:
     domains: list[str] = []
-    line_re = re.compile(r"^\s*relay-domain\s+\*\.([A-Za-z0-9.-]+)\s*$", re.IGNORECASE)
+    # More robust pattern that works even if multiple entries are concatenated without newlines
+    pattern = re.compile(r"relay-domain\s+\*\.([A-Za-z0-9.-]+)", re.IGNORECASE)
     if not os.path.exists(relay_file):
         return domains
     try:
         with open(relay_file, "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                m = line_re.match(line.strip())
-                if m:
-                    domains.append(m.group(1).lower())
+            content = f.read()
+        for m in pattern.finditer(content):
+            domains.append(m.group(1).lower())
     except Exception as e:
         logger.error(f"Failed reading relay file {relay_file}: {e}")
         raise HTTPException(status_code=500, detail="Failed to read relay domains file")
@@ -160,16 +175,15 @@ async def delete_domain(domain: str) -> Dict[str, str]:
     relay_file = settings.RELAYDOMAINS_PATH
     if not os.path.exists(relay_file):
         raise HTTPException(status_code=404, detail="Relay file not found")
-    # Rewrite file without matching line(s)
-    line_to_remove_re = re.compile(r"^\s*relay-domain\s+\*\." + re.escape(domain) + r"\s*$", re.IGNORECASE)
+    # Robust rewrite from parsed domain list
     try:
-        with open(relay_file, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
-        new_lines = [ln for ln in lines if not line_to_remove_re.match(ln.strip())]
-        if len(new_lines) == len(lines):
+        domains = _read_domains(relay_file)
+        if domain not in domains:
             raise HTTPException(status_code=404, detail="Domain not found")
-        with open(relay_file, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
+        new_domains = [d for d in domains if d != domain]
+        with open(relay_file, "w", encoding="utf-8", newline="") as f:
+            for d in new_domains:
+                f.write(f"relay-domain *.{d}\n")
         # Update meta
         meta = _load_meta(relay_file)
         if domain in meta:
@@ -201,33 +215,22 @@ async def update_domain(domain: str, body: UpdateDomainRequest) -> Dict[str, str
     relay_file = settings.RELAYDOMAINS_PATH
     if not os.path.exists(relay_file):
         raise HTTPException(status_code=404, detail="Relay file not found")
-
-    # Ensure new domain not already present
-    domains = set(_read_domains(relay_file))
-    if new_domain in domains:
-        raise HTTPException(status_code=409, detail="New domain already exists")
-
-    old_line_re = re.compile(r"^\s*relay-domain\s+\*\." + re.escape(old_domain) + r"\s*$", re.IGNORECASE)
     try:
-        with open(relay_file, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
-        replaced = False
-        with open(relay_file, "w", encoding="utf-8") as f:
-            for ln in lines:
-                if not replaced and old_line_re.match(ln.strip()):
-                    f.write(f"relay-domain *.{new_domain}\n")
-                    replaced = True
-                else:
-                    f.write(ln)
-        if not replaced:
+        domains = _read_domains(relay_file)
+        if new_domain in domains and new_domain != old_domain:
+            raise HTTPException(status_code=409, detail="New domain already exists")
+        if old_domain not in domains:
             raise HTTPException(status_code=404, detail="Old domain not found")
+        new_domains = [new_domain if d == old_domain else d for d in domains]
+        with open(relay_file, "w", encoding="utf-8", newline="") as f:
+            for d in new_domains:
+                f.write(f"relay-domain *.{d}\n")
         # Update meta: move added_at under new key
         meta = _load_meta(relay_file)
         if old_domain in meta:
             meta[new_domain] = meta.pop(old_domain)
             _save_meta(relay_file, meta)
         else:
-            # No meta existed for old domain; write a new added_at timestamp
             _update_meta_added(relay_file, new_domain)
         return {"message": "Domain updated", "domain": new_domain}
     except HTTPException:
