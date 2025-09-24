@@ -35,32 +35,45 @@ async def add_domain(body: AddDomainRequest) -> Dict[str, str]:
     if not DOMAIN_REGEX.match(domain_raw):
         raise HTTPException(status_code=400, detail="Invalid domain name. Use a valid domain like example.com")
 
-    relay_dir = settings.RELAYDOMAINS_PATH
+    # Treat RELAYDOMAINS_PATH as a single file to append lines to
+    relay_file = settings.RELAYDOMAINS_PATH
+    relay_dir = os.path.dirname(relay_file) or "."
     try:
-        if not os.path.isdir(relay_dir):
+        if relay_dir and not os.path.isdir(relay_dir):
             if settings.DEBUG:
                 os.makedirs(relay_dir, exist_ok=True)
             else:
-                raise HTTPException(status_code=500, detail=f"Relay domains path not found: {relay_dir}")
+                raise HTTPException(status_code=500, detail=f"Relay domains directory not found: {relay_dir}")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error ensuring relay directory exists: {e}")
         raise HTTPException(status_code=500, detail="Failed to access relay domains directory")
 
-    # Filename is the domain itself (e.g., /etc/pmta/relaydomains-c/example.com)
-    file_path = os.path.join(relay_dir, domain_raw)
+    # Check for duplicates if file exists
+    existing_matches = False
+    line_re = re.compile(r"^\s*relay-domain\s+\*\." + re.escape(domain_raw) + r"\s*$", re.IGNORECASE)
+    try:
+        if os.path.exists(relay_file):
+            with open(relay_file, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    if line_re.match(line.strip()):
+                        existing_matches = True
+                        break
+    except Exception as e:
+        logger.error(f"Failed reading relay file {relay_file}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read relay domains file")
 
-    if os.path.exists(file_path):
+    if existing_matches:
         raise HTTPException(status_code=409, detail="Domain already exists")
 
     content = f"relay-domain *.{domain_raw}\n"
 
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
+        with open(relay_file, "a", encoding="utf-8") as f:
             f.write(content)
-        logger.info(f"Added relay domain: {domain_raw} -> {file_path}")
+        logger.info(f"Appended relay domain: {domain_raw} -> {relay_file}")
         return {"message": "Domain added", "domain": domain_raw}
     except Exception as e:
-        logger.error(f"Failed to write domain file {file_path}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to write domain file")
+        logger.error(f"Failed to append to relay file {relay_file}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to write relay domains file")
