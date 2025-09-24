@@ -16,6 +16,29 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+@router.get("/test")
+async def test_endpoint():
+    """Simple test endpoint to verify admin routing works"""
+    return {"status": "ok", "message": "Admin endpoint working"}
+
+@router.get("/debug")
+async def debug_endpoint():
+    """Debug endpoint to check settings and basic functionality"""
+    try:
+        relay_file = settings.RELAYDOMAINS_PATH
+        exists = os.path.exists(relay_file)
+        return {
+            "relay_file": relay_file,
+            "exists": exists,
+            "cwd": os.getcwd(),
+            "settings_available": hasattr(settings, 'RELAYDOMAINS_PATH')
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "type": type(e).__name__
+        }
+
 # Regex for domain validation: labels of [a-z0-9-], no leading/trailing hyphen, TLD letters only 2-24
 DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,24}$")
 
@@ -105,16 +128,22 @@ def _get_meta_path(relay_file: str) -> str:
 
 def _load_meta(relay_file: str) -> Dict[str, Dict[str, str]]:
     path = _get_meta_path(relay_file)
+    logger.info(f"[_load_meta] Meta path: {path}")
     if not os.path.exists(path):
+        logger.info(f"[_load_meta] Meta file does not exist, returning empty dict")
         return {}
     try:
         import json
+        logger.info(f"[_load_meta] Reading meta file...")
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             data = json.load(f)
             if isinstance(data, dict):
+                logger.info(f"[_load_meta] Loaded meta data with {len(data)} entries")
                 return data
+            logger.warning(f"[_load_meta] Meta data is not a dict: {type(data)}")
             return {}
-    except Exception:
+    except Exception as e:
+        logger.error(f"[_load_meta] Error loading meta file: {e}")
         return {}
 
 
@@ -138,38 +167,86 @@ def _update_meta_added(relay_file: str, domain: str) -> None:
 
 def _read_domains(relay_file: str) -> list[str]:
     domains: list[str] = []
+    logger.info(f"[_read_domains] Starting with file: {relay_file}")
+    
     # More robust pattern that works even if multiple entries are concatenated without newlines
     pattern = re.compile(r"relay-domain\s+\*\.([A-Za-z0-9.-]+)", re.IGNORECASE)
+    
     if not os.path.exists(relay_file):
+        logger.info(f"[_read_domains] File does not exist: {relay_file}")
         return domains
+        
     try:
+        logger.info(f"[_read_domains] Opening file for reading...")
         with open(relay_file, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
-        for m in pattern.finditer(content):
-            domains.append(m.group(1).lower())
+        logger.info(f"[_read_domains] Read {len(content)} characters")
+        
+        matches = list(pattern.finditer(content))
+        logger.info(f"[_read_domains] Found {len(matches)} regex matches")
+        
+        for m in matches:
+            domain = m.group(1).lower()
+            domains.append(domain)
+            logger.info(f"[_read_domains] Added domain: {domain}")
+            
     except Exception as e:
-        logger.error(f"Failed reading relay file {relay_file}: {e}")
+        logger.error(f"[_read_domains] Failed reading relay file {relay_file}: {e}", exc_info=True)
         # Tolerate read errors by returning an empty list so the UI can load
         return domains
+        
+    logger.info(f"[_read_domains] Returning {len(domains)} domains: {domains}")
+    return domains
 
 
 @router.get("/domains")
-async def list_domains() -> Dict[str, list[Dict[str, str]]]:
-    relay_file = settings.RELAYDOMAINS_PATH
-    items: list[Dict[str, str]] = []
-    domains = _read_domains(relay_file)
-    meta = _load_meta(relay_file)
-    for d in domains:
-        added_at = (meta.get(d) or {}).get("added_at")
-        items.append({"domain": d, "added_at": added_at})
-    # Sort by added_at desc if available
-    items.sort(key=lambda x: x.get("added_at") or "", reverse=True)
+async def list_domains() -> Dict:
     try:
-        exists = os.path.exists(relay_file)
-        size = os.path.getsize(relay_file) if exists else 0
-    except Exception:
-        exists, size = False, 0
-    return {"domains": items, "relay_file": relay_file, "exists": exists, "size": size}
+        relay_file = settings.RELAYDOMAINS_PATH
+        logger.info(f"[list_domains] Starting with relay_file: {relay_file}")
+        
+        items: list[Dict[str, str]] = []
+        
+        logger.info(f"[list_domains] Calling _read_domains...")
+        domains = _read_domains(relay_file)
+        logger.info(f"[list_domains] Found {len(domains)} domains: {domains}")
+        
+        logger.info(f"[list_domains] Loading meta...")
+        meta = _load_meta(relay_file)
+        logger.info(f"[list_domains] Meta keys: {list(meta.keys())}")
+        
+        for d in domains:
+            added_at = (meta.get(d) or {}).get("added_at")
+            items.append({"domain": d, "added_at": added_at})
+            
+        # Sort by added_at desc if available
+        items.sort(key=lambda x: x.get("added_at") or "", reverse=True)
+        
+        try:
+            exists = os.path.exists(relay_file)
+            size = os.path.getsize(relay_file) if exists else 0
+        except Exception as e:
+            logger.warning(f"[list_domains] Error checking file stats: {e}")
+            exists, size = False, 0
+            
+        result = {"domains": items, "relay_file": relay_file, "exists": exists, "size": size}
+        logger.info(f"[list_domains] Returning: {result}")
+        return result
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"[list_domains] Unexpected error: {e}", exc_info=True)
+        # Return a proper JSON error response
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "error": "Internal server error",
+                "message": str(e),
+                "relay_file": getattr(settings, 'RELAYDOMAINS_PATH', 'unknown')
+            }
+        )
 
 
 @router.delete("/domains/{domain}")
