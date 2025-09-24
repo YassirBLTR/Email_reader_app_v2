@@ -6,6 +6,7 @@ class EmailReaderApp {
         this.pageSize = 20;
         this.selectedEmails = new Set();
         this.currentSearchParams = {};
+        this.currentUser = null;
         // If no token present, redirect to login early
         const token = localStorage.getItem('token');
         if (!token) {
@@ -17,6 +18,8 @@ class EmailReaderApp {
 
     init() {
         this.bindEvents();
+        // Load authenticated user and update navbar
+        this.loadUser();
         this.loadEmailStats();
         this.loadEmails();
     }
@@ -52,6 +55,21 @@ class EmailReaderApp {
         document.getElementById('downloadSingleEmail').addEventListener('click', () => {
             this.downloadSingleEmail();
         });
+
+        // Logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.logout());
+        }
+
+        // Placeholder for admin Domains button until feature is implemented
+        const adminBtn = document.getElementById('adminDomainsBtn');
+        if (adminBtn) {
+            adminBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showToast('Domains management coming soon', 'success');
+            });
+        }
     }
 
     // Wrapper around fetch to attach Authorization header and handle 401
@@ -70,6 +88,41 @@ class EmailReaderApp {
             }
             return res;
         });
+    }
+
+    async loadUser() {
+        try {
+            const res = await this.apiFetch('/api/auth/me');
+            if (!res.ok) return; // apiFetch will handle 401
+            const user = await res.json();
+            this.currentUser = user;
+            // Update navbar UI
+            const userDropdown = document.getElementById('userDropdown');
+            const userInfo = document.getElementById('userInfo');
+            const userRole = document.getElementById('userRole');
+            if (userDropdown && userInfo && userRole) {
+                userInfo.textContent = user.username || 'User';
+                userRole.textContent = `Role: ${user.role === 'admin' ? 'Admin' : 'User'}`;
+                userDropdown.classList.remove('d-none');
+            }
+            // Admin-only button
+            const adminBtn = document.getElementById('adminDomainsBtn');
+            if (adminBtn) {
+                if (user.role === 'admin') adminBtn.classList.remove('d-none');
+                else adminBtn.classList.add('d-none');
+            }
+        } catch (e) {
+            // Handled by apiFetch
+        }
+    }
+
+    async logout() {
+        try {
+            // Best-effort server call; stateless
+            await this.apiFetch('/api/auth/logout', { method: 'POST' });
+        } catch (_) {}
+        try { localStorage.removeItem('token'); } catch {}
+        window.location.href = '/login';
     }
 
     async loadEmailStats() {

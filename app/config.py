@@ -25,6 +25,9 @@ class Settings:
     # Authentication settings
     AUTH_USERNAME: str = config("AUTH_USERNAME", default="admin")
     AUTH_PASSWORD: str = config("AUTH_PASSWORD", default="admin123")
+    # Dedicated normal user (optional). If not provided, defaults are used.
+    AUTH_USER_USERNAME: str = config("AUTH_USER_USERNAME", default="user")
+    AUTH_USER_PASSWORD: str = config("AUTH_USER_PASSWORD", default="user123")
     JWT_SECRET_KEY: str = config("JWT_SECRET_KEY", default="change_this_secret")
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = config("JWT_EXPIRE_MINUTES", default=60, cast=int)

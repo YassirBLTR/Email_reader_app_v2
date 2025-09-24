@@ -18,10 +18,22 @@
                 <i class="fas fa-envelope me-2"></i>
                 Email Reader
             </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text" id="emailStats">
+            <div class="navbar-nav ms-auto align-items-center">
+                <span class="navbar-text me-3" id="emailStats">
                     Loading...
                 </span>
+                <a class="btn btn-outline-light btn-sm me-2 d-none" id="adminDomainsBtn" href="#" title="Manage Domains">
+                    <i class="fas fa-globe me-1"></i> Domains
+                </a>
+                <div class="nav-item dropdown d-none" id="userDropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userInfo" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        User
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header" id="userRole">Role</h6></li>
+                        <li><button class="dropdown-item" id="logoutBtn"><i class="fas fa-sign-out-alt me-2"></i>Logout</button></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
