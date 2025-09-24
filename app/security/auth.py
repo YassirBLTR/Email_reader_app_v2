@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -10,7 +10,7 @@ import os
 from app.config import settings
 
 # OAuth2 scheme (we'll use Bearer token in Authorization header)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 # Password hashing context (optional; if AUTH_PASSWORD is plaintext we still work)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -59,14 +59,17 @@ def create_access_token(data: Dict, expires_minutes: Optional[int] = None) -> st
     return encoded_jwt
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict:
+def get_current_user(request: Request, token: Optional[str] = Depends(oauth2_scheme)) -> Dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    used_token = token or request.cookies.get("access_token")
+    if not used_token:
+        raise credentials_exception
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(used_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         username: str = payload.get("sub")
         role: Optional[str] = payload.get("role")
         if username is None:

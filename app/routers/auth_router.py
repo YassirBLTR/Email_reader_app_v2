@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from pydantic import BaseModel
 from typing import Dict
 
@@ -9,6 +9,7 @@ from app.security.auth import (
     ADMIN_USERNAME,
     USER_USERNAME,
 )
+from app.config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -19,7 +20,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-async def login(req: Request, body: LoginRequest) -> Dict[str, str]:
+async def login(req: Request, body: LoginRequest, response: Response) -> Dict[str, str]:
     """Authenticate a user (admin or normal user) and return a JWT access token with role claim."""
     username = body.username
     password = body.password
@@ -37,6 +38,18 @@ async def login(req: Request, body: LoginRequest) -> Dict[str, str]:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     access_token = create_access_token({"sub": username, "role": role})
+    # Set HttpOnly cookie so server-rendered routes can read auth without JS
+    max_age = settings.JWT_EXPIRE_MINUTES * 60
+    secure_cookie = (req.url.scheme == "https")
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        max_age=max_age,
+        httponly=True,
+        samesite="lax",
+        secure=secure_cookie,
+        path="/",
+    )
     return {"access_token": access_token, "token_type": "bearer", "role": role, "username": username}
 
 
@@ -47,8 +60,10 @@ async def me(current_user: Dict = Depends(get_current_user)) -> Dict:
 
 
 @router.post("/logout")
-async def logout() -> Dict[str, str]:
+async def logout(response: Response) -> Dict[str, str]:
     """Stateless logout endpoint. Clients should delete the stored token.
     Provided for UI symmetry; no server-side token store is used.
     """
+    # Clear cookie
+    response.delete_cookie("access_token", path="/")
     return {"status": "ok"}
