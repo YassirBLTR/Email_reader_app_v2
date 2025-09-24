@@ -8,6 +8,7 @@ import os
 from app.config import settings
 from app.routers import email_router
 from app.routers import auth_router
+from app.routers import admin_router
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +28,7 @@ app = FastAPI(
 # Include routers
 app.include_router(auth_router.router)
 app.include_router(email_router.router)
+app.include_router(admin_router.router)
 
 # Mount static files
 static_path = os.path.join(os.path.dirname(__file__), "static")

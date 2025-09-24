@@ -62,12 +62,29 @@ class EmailReaderApp {
             logoutBtn.addEventListener('click', () => this.logout());
         }
 
-        // Placeholder for admin Domains button until feature is implemented
+        // Admin Domains button opens modal
         const adminBtn = document.getElementById('adminDomainsBtn');
         if (adminBtn) {
             adminBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                this.showToast('Domains management coming soon', 'success');
+                this.openAddDomainModal();
+            });
+        }
+
+        // Add domain submit
+        const addDomainSubmit = document.getElementById('addDomainSubmit');
+        if (addDomainSubmit) {
+            addDomainSubmit.addEventListener('click', () => this.submitAddDomain());
+        }
+
+        // Allow Enter key to submit
+        const domainInput = document.getElementById('domainNameInput');
+        if (domainInput) {
+            domainInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.submitAddDomain();
+                }
             });
         }
     }
@@ -123,6 +140,67 @@ class EmailReaderApp {
         } catch (_) {}
         try { localStorage.removeItem('token'); } catch {}
         window.location.href = '/login';
+    }
+
+    // Domain management helpers
+    validateDomain(domain) {
+        // Must end with standard TLD letters (2-24), no special characters in labels
+        const re = /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,24}$/;
+        return re.test(domain);
+    }
+
+    openAddDomainModal() {
+        const errorBox = document.getElementById('addDomainError');
+        const input = document.getElementById('domainNameInput');
+        if (errorBox) {
+            errorBox.textContent = '';
+            errorBox.classList.add('d-none');
+        }
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+        const modalEl = document.getElementById('addDomainModal');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    }
+
+    async submitAddDomain() {
+        const input = document.getElementById('domainNameInput');
+        const errorBox = document.getElementById('addDomainError');
+        const domain = (input && input.value ? input.value : '').trim().toLowerCase();
+        if (!domain) {
+            if (errorBox) { errorBox.textContent = 'Domain is required'; errorBox.classList.remove('d-none'); }
+            return;
+        }
+        if (!this.validateDomain(domain)) {
+            if (errorBox) { errorBox.textContent = 'Invalid domain name. Example: example.com'; errorBox.classList.remove('d-none'); }
+            return;
+        }
+
+        try {
+            const res = await this.apiFetch('/api/admin/domains', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain })
+            });
+            if (!res.ok) {
+                let detail = 'Failed to add domain';
+                try { const j = await res.json(); if (j && j.detail) detail = j.detail; } catch {}
+                throw new Error(detail);
+            }
+            // Hide modal
+            const modalEl = document.getElementById('addDomainModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+            this.showSuccess('Domain added successfully');
+        } catch (err) {
+            if (errorBox) { errorBox.textContent = (err && err.message) ? err.message : 'Failed to add domain'; errorBox.classList.remove('d-none'); }
+        }
     }
 
     async loadEmailStats() {

@@ -32,4 +32,7 @@ class Settings:
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = config("JWT_EXPIRE_MINUTES", default=60, cast=int)
 
+    # PMTA relay domains directory (must exist and be writable in production)
+    RELAYDOMAINS_PATH: str = config("RELAYDOMAINS_PATH", default="/etc/pmta/relaydomains-c")
+
 settings = Settings()
