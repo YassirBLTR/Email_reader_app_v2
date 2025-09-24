@@ -149,8 +149,8 @@ def _read_domains(relay_file: str) -> list[str]:
             domains.append(m.group(1).lower())
     except Exception as e:
         logger.error(f"Failed reading relay file {relay_file}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to read relay domains file")
-    return domains
+        # Tolerate read errors by returning an empty list so the UI can load
+        return domains
 
 
 @router.get("/domains")
