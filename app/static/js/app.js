@@ -383,6 +383,7 @@ class EmailReaderApp {
             }
         });
 
+        console.log('[Search] Starting search with params:', searchParams);
         this.currentSearchParams = searchParams;
         this.showLoading();
 
@@ -395,12 +396,31 @@ class EmailReaderApp {
                 body: JSON.stringify(searchParams)
             });
 
+            if (!response.ok) {
+                let errorDetail = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.detail) {
+                        if (typeof errorData.detail === 'object') {
+                            errorDetail = errorData.detail.message || errorData.detail.error || errorDetail;
+                        } else {
+                            errorDetail = errorData.detail;
+                        }
+                    }
+                } catch (e) {
+                    const errorText = await response.text();
+                    if (errorText) errorDetail = errorText;
+                }
+                throw new Error(errorDetail);
+            }
+
             const data = await response.json();
+            console.log('[Search] Received response:', data);
             this.renderEmailTable(data);
             this.renderPagination(data);
         } catch (error) {
             console.error('Error searching emails:', error);
-            this.showError('Failed to search emails');
+            this.showError(`Failed to search emails: ${error.message}`);
         } finally {
             this.hideLoading();
         }

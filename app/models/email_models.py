@@ -54,6 +54,15 @@ class EmailSearchRequest(BaseModel):
     subject: Optional[str] = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
+    
+    # Add aliases for backward compatibility
+    @property
+    def start_date(self) -> Optional[datetime]:
+        return self.date_from
+    
+    @property
+    def end_date(self) -> Optional[datetime]:
+        return self.date_to
 
 class DownloadRequest(BaseModel):
     filenames: List[str]

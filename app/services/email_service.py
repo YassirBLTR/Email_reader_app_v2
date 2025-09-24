@@ -122,14 +122,40 @@ class EmailService:
             Tuple of (matching email summaries, total count)
         """
         try:
+            logger.info(f"[search_emails] Starting search with params: query={search_request.query}, "
+                       f"sender={search_request.sender}, subject={search_request.subject}, "
+                       f"date_from={search_request.date_from}, date_to={search_request.date_to}")
+            
             msg_files = self.get_email_files()
+            logger.info(f"[search_emails] Found {len(msg_files)} total email files")
+            
+            if not msg_files:
+                logger.warning("[search_emails] No email files found")
+                return [], 0
+            
+            # If no search criteria provided, return all emails with pagination
+            if not any([search_request.query, search_request.sender, search_request.subject, 
+                       search_request.date_from, search_request.date_to]):
+                logger.info("[search_emails] No search criteria, returning paginated results")
+                return self.get_emails_summary(search_request.page, search_request.page_size)
+            
             matching_files = []
+            processed_count = 0
             
             for file_path in msg_files:
-                if self._matches_search_criteria(file_path, search_request):
-                    matching_files.append(file_path)
+                try:
+                    processed_count += 1
+                    if processed_count % 100 == 0:
+                        logger.info(f"[search_emails] Processed {processed_count}/{len(msg_files)} files")
+                    
+                    if self._matches_search_criteria(file_path, search_request):
+                        matching_files.append(file_path)
+                except Exception as e:
+                    logger.error(f"[search_emails] Error checking file {file_path}: {str(e)}")
+                    continue
             
             total_count = len(matching_files)
+            logger.info(f"[search_emails] Found {total_count} matching files")
             
             # Apply pagination
             start_idx = (search_request.page - 1) * search_request.page_size
@@ -167,53 +193,66 @@ class EmailService:
                     logger.error(f"Error processing email summary for {file_path}: {str(e)}")
                     continue
             
+            logger.info(f"[search_emails] Returning {len(email_summaries)} email summaries")
             return email_summaries, total_count
         except Exception as e:
-            logger.error(f"Error searching emails: {str(e)}")
+            logger.error(f"Error searching emails: {str(e)}", exc_info=True)
             return [], 0
     
     def _matches_search_criteria(self, file_path: str, search_request: EmailSearchRequest) -> bool:
         """Check if an email file matches the search criteria based on parsed email content"""
         try:
-            # Parse email content to get actual metadata for searching
+            # First check file-based criteria (faster)
+            file_stats = os.stat(file_path)
+            filename = os.path.basename(file_path)
+            file_date = datetime.fromtimestamp(file_stats.st_mtime)
+            
+            # Quick date range check using file modification time
+            if search_request.date_from and file_date < search_request.date_from:
+                return False
+            if search_request.date_to and file_date > search_request.date_to:
+                return False
+            
+            # If only date filtering is needed and file passes, return True
+            if not any([search_request.query, search_request.sender, search_request.subject]):
+                return True
+            
+            # Parse email content only if content-based searching is needed
             email_data = self.msg_parser.get_msg_summary(file_path)
             
             if not email_data:
-                # Fallback to file metadata if parsing fails
-                file_stats = os.stat(file_path)
-                filename = os.path.basename(file_path)
-                file_date = datetime.fromtimestamp(file_stats.st_mtime)
-                
-                # Check date range
-                if search_request.start_date and file_date < search_request.start_date:
-                    return False
-                if search_request.end_date and file_date > search_request.end_date:
-                    return False
-                
-                # Check filename-based searches
+                # Fallback to filename-based searches if parsing fails
                 filename_lower = filename.lower()
                 if search_request.query and search_request.query.lower() not in filename_lower:
                     return False
                 if search_request.subject and search_request.subject.lower() not in filename_lower:
                     return False
-                
+                if search_request.sender:
+                    # Can't check sender from filename, so exclude
+                    return False
                 return True
             
             # Use parsed email data for more accurate searching
             email_date = email_data.get('date')
             subject = email_data.get('subject', '').lower()
             sender = email_data.get('sender', '').lower()
+            recipients = email_data.get('recipients', [])
+            recipients_text = ' '.join(recipients).lower() if recipients else ''
             
-            # Check date range
-            if search_request.start_date and email_date and email_date < search_request.start_date:
+            # More precise date range check with actual email date
+            if search_request.date_from and email_date and email_date < search_request.date_from:
                 return False
-            if search_request.end_date and email_date and email_date > search_request.end_date:
+            if search_request.date_to and email_date and email_date > search_request.date_to:
                 return False
             
-            # Check query in subject and sender
+            # Check query in subject, sender, and recipients
             if search_request.query:
                 query_lower = search_request.query.lower()
-                if query_lower not in subject and query_lower not in sender:
+                if not any([
+                    query_lower in subject,
+                    query_lower in sender,
+                    query_lower in recipients_text
+                ]):
                     return False
             
             # Check specific subject search

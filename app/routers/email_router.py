@@ -51,19 +51,33 @@ async def search_emails(
 ):
     """Search emails with filters"""
     try:
+        logger.info(f"[search_emails] Received search request: {search_request.dict()}")
+        
         emails, total_count = email_service.search_emails(search_request)
         total_pages = (total_count + search_request.page_size - 1) // search_request.page_size
         
-        return EmailListResponse(
+        response = EmailListResponse(
             emails=emails,
             total_count=total_count,
             page=search_request.page,
             page_size=search_request.page_size,
             total_pages=total_pages
         )
+        
+        logger.info(f"[search_emails] Returning {len(emails)} emails, total: {total_count}, pages: {total_pages}")
+        return response
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error searching emails: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Error searching emails: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "error": "Search failed",
+                "message": str(e)
+            }
+        )
 
 @router.get("/{filename}", response_model=EmailDetail)
 async def get_email_detail(
@@ -175,6 +189,34 @@ async def get_email_stats(
     except Exception as e:
         logger.error(f"Error getting email stats: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/test-search")
+async def test_search_endpoint(
+    email_service: EmailService = Depends(get_email_service)
+):
+    """Test search functionality with simple parameters"""
+    try:
+        # Test with empty search (should return first page of all emails)
+        from app.models.email_models import EmailSearchRequest
+        test_request = EmailSearchRequest(page=1, page_size=5)
+        
+        emails, total_count = email_service.search_emails(test_request)
+        
+        return {
+            "status": "success",
+            "total_files": len(email_service.get_email_files()),
+            "search_results": total_count,
+            "returned_emails": len(emails),
+            "email_folder": settings.EMAIL_FOLDER_PATH,
+            "first_email": emails[0].dict() if emails else None
+        }
+    except Exception as e:
+        logger.error(f"Error in test search: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "email_folder": settings.EMAIL_FOLDER_PATH
+        }
 
 def cleanup_temp_file(file_path: str):
     """Background task to cleanup temporary files"""
