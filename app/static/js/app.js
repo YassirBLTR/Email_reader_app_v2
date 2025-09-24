@@ -62,12 +62,12 @@ class EmailReaderApp {
             logoutBtn.addEventListener('click', () => this.logout());
         }
 
-        // Admin Domains button opens modal
+        // Admin Domains button opens Domains Manager
         const adminBtn = document.getElementById('adminDomainsBtn');
         if (adminBtn) {
             adminBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                this.openAddDomainModal();
+                this.openDomainsManager();
             });
         }
 
@@ -85,6 +85,22 @@ class EmailReaderApp {
                     e.preventDefault();
                     this.submitAddDomain();
                 }
+            });
+        }
+
+        // Domains Manager events
+        const openAddFromManager = document.getElementById('openAddDomainFromManager');
+        if (openAddFromManager) {
+            openAddFromManager.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.openAddDomainModal();
+            });
+        }
+        const refreshDomainsList = document.getElementById('refreshDomainsList');
+        if (refreshDomainsList) {
+            refreshDomainsList.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.loadDomainsList();
             });
         }
     }
@@ -198,8 +214,125 @@ class EmailReaderApp {
                 if (modal) modal.hide();
             }
             this.showSuccess('Domain added successfully');
+            // Refresh manager list if open
+            const managerEl = document.getElementById('domainsManagerModal');
+            if (managerEl && managerEl.classList.contains('show')) {
+                this.loadDomainsList();
+            }
         } catch (err) {
             if (errorBox) { errorBox.textContent = (err && err.message) ? err.message : 'Failed to add domain'; errorBox.classList.remove('d-none'); }
+        }
+    }
+
+    // Domains manager UI
+    openDomainsManager() {
+        const modalEl = document.getElementById('domainsManagerModal');
+        if (!modalEl) return;
+        const modal = new bootstrap.Modal(modalEl);
+        this.loadDomainsList().finally(() => modal.show());
+    }
+
+    async loadDomainsList() {
+        const alertBox = document.getElementById('domainsAlert');
+        if (alertBox) { alertBox.classList.add('d-none'); alertBox.textContent = ''; }
+        try {
+            const res = await this.apiFetch('/api/admin/domains');
+            if (!res.ok) throw new Error('Failed to load domains');
+            const data = await res.json();
+            this.renderDomainsTable(data.domains || []);
+        } catch (err) {
+            if (alertBox) { alertBox.textContent = (err && err.message) ? err.message : 'Failed to load domains'; alertBox.classList.remove('d-none'); }
+        }
+    }
+
+    renderDomainsTable(items) {
+        const tbody = document.querySelector('#domainsTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!items.length) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="3" class="text-center text-muted">No domains found</td>`;
+            tbody.appendChild(tr);
+            return;
+        }
+        items.forEach(item => {
+            const tr = document.createElement('tr');
+            const dateText = item.added_at ? this.formatDateTime(item.added_at) : '-';
+            tr.innerHTML = `
+                <td>${this.escapeHtml(dateText)}</td>
+                <td>${this.escapeHtml(item.domain)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-2" data-action="edit" data-domain="${item.domain}">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-domain="${item.domain}">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        // Bind actions
+        tbody.querySelectorAll('button[data-action]')
+            .forEach(btn => btn.addEventListener('click', (e) => {
+                const action = e.currentTarget.getAttribute('data-action');
+                const domain = e.currentTarget.getAttribute('data-domain');
+                if (action === 'delete') this.deleteDomain(domain);
+                if (action === 'edit') this.editDomain(domain);
+            }));
+    }
+
+    formatDateTime(isoStr) {
+        try {
+            const d = new Date(isoStr);
+            if (!isNaN(d)) return d.toLocaleString();
+        } catch {}
+        return isoStr;
+    }
+
+    async deleteDomain(domain) {
+        if (!domain) return;
+        if (!confirm(`Delete domain "${domain}"?`)) return;
+        const alertBox = document.getElementById('domainsAlert');
+        if (alertBox) { alertBox.classList.add('d-none'); alertBox.textContent = ''; }
+        try {
+            const res = await this.apiFetch(`/api/admin/domains/${encodeURIComponent(domain)}`, { method: 'DELETE' });
+            if (!res.ok) {
+                let detail = 'Failed to delete domain';
+                try { const j = await res.json(); if (j && j.detail) detail = j.detail; } catch {}
+                throw new Error(detail);
+            }
+            this.showSuccess('Domain deleted');
+            this.loadDomainsList();
+        } catch (err) {
+            if (alertBox) { alertBox.textContent = (err && err.message) ? err.message : 'Failed to delete domain'; alertBox.classList.remove('d-none'); }
+        }
+    }
+
+    async editDomain(domain) {
+        if (!domain) return;
+        const newDomain = prompt('Update domain to:', domain);
+        if (newDomain === null) return; // cancelled
+        const nd = newDomain.trim().toLowerCase();
+        if (!nd) { this.showError('Domain cannot be empty'); return; }
+        if (!this.validateDomain(nd)) { this.showError('Invalid domain name'); return; }
+        const alertBox = document.getElementById('domainsAlert');
+        if (alertBox) { alertBox.classList.add('d-none'); alertBox.textContent = ''; }
+        try {
+            const res = await this.apiFetch(`/api/admin/domains/${encodeURIComponent(domain)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_domain: nd })
+            });
+            if (!res.ok) {
+                let detail = 'Failed to update domain';
+                try { const j = await res.json(); if (j && j.detail) detail = j.detail; } catch {}
+                throw new Error(detail);
+            }
+            this.showSuccess('Domain updated');
+            this.loadDomainsList();
+        } catch (err) {
+            if (alertBox) { alertBox.textContent = (err && err.message) ? err.message : 'Failed to update domain'; alertBox.classList.remove('d-none'); }
         }
     }
 
